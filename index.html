@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Simple JS Implicit Oauth</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="js/lscache.js"></script>
+    <script>
+        //https://auth0.com/docs/api-auth/tutorials/implicit-grant
+
+        /// Oauth Variables ///
+        var redirect_url = window.location.href; // define redirect url as current window
+        var client_id = "CLIENT_ID"; // fill in client_id
+        var scope = "SCOPE"; // fill in scope
+        var state = Date.now() + "" + Math.random(); // generate random state
+        var oauth_url = "https://URL/oauth?redirect_uri=" + redirect_url + "&response_type=token&client_id=" + client_id + "&scope=" + scope + "&state=" + state; // fill in oauth url
+
+        $(document).ready(function() {
+            if (window.location.hash) {
+                var expiration = (window.location.hash || window.location.search).match(/&expires_in=([^&]+)/); //get expiration time in secs from hash
+                var expiration_mins = Math.floor(expiration[1] / 60);
+                var access_token = (window.location.hash || window.location.search).match(/#token=([^&]+)/); //get token from hash
+                if (access_token) {
+                    if (!lscache.supported()) {
+                        alert('Local storage is unsupported in this browser, cannot log in.');
+                        return;
+                    }
+                    lscache.set('sportlink_token', decodeURIComponent(access_token[1]), expiration_mins); //save token & expiration time to localstorage with https://github.com/pamelafox/lscache
+                    // localStorage.setItem(tokenKey, decodeURIComponent(access_token[1])); // alternatively simply use localStorage if the token doesn't expire
+                }
+            }
+            /// Check whether login or logout button should be displayed
+            if (lscache.get('sportlink_token') === null) {
+                $("#logout").hide();
+                $("#login").show();
+                $("#data").hide();
+            } else {
+                $("#logout").show();
+                $("#login").hide();
+                $("#data").show();
+            }
+        });
+
+        function login() {
+            lscache.remove('sportlink_token');
+            // localStorage.removeItem(tokenKey);
+            window.location.assign(oauth_url);
+        }
+
+        function logout() {
+            lscache.remove('sportlink_token');
+            //  localStorage.removeItem(tokenKey);
+            window.location = window.location.href.split("#")[0];
+        }
+
+        function getdata() {
+            token = lscache.get('sportlink_token');
+            //  token = localStorage.getItem(tokenKey);
+            $.getJSON("https://data.sportlink.com/mijn-gegevens?token=" + token, function(data) {
+                console.log(data); // print result to console
+                $("<p>" + data + "</p>").appendTo("body"); // append result to body
+            }).fail(function() {
+                lscache.remove('sportlink_token');
+                window.location = window.location.href.split("#")[0];
+            });
+        }
+    </script>
+
+</head>
+
+<body>
+    <div align="center">
+        <br>
+        <p>Simple Implicit Oauth Test Page</p>
+        <br>
+        <input id="login" type="button" value="log in" onclick="login();" />
+        <input id="logout" type="button" value="log out" onclick="logout();" />
+        <input id="data" type="button" value="get data" onclick="getdata();" />
+    </div>
+</body>
+
+</html>
