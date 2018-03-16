@@ -22,14 +22,22 @@
             if (window.location.hash) {
                 var expiration = (window.location.hash || window.location.search).match(/&expires_in=([^&]+)/); //get expiration time in secs from hash
                 var expiration_mins = Math.floor(expiration[1] / 60);
+                var returnedstate = (window.location.hash || window.location.search).match(/&state=([^&]+)/); //get state from hash
                 var access_token = (window.location.hash || window.location.search).match(/#token=([^&]+)/); //get token from hash
                 if (access_token) {
                     if (!lscache.supported()) {
                         alert('Local storage is unsupported in this browser, cannot log in.');
                         return;
                     }
-                    lscache.set('token', decodeURIComponent(access_token[1]), expiration_mins); //save token & expiration time to localstorage with https://github.com/pamelafox/lscache
-                    // localStorage.setItem(tokenKey, decodeURIComponent(access_token[1])); // alternatively simply use localStorage if the token doesn't expire
+                    if(returnedstate[1] === lscache.get('state')){ // validate returned state against saved state
+                        lscache.remove('state');
+                        lscache.set('token', decodeURIComponent(access_token[1]), expiration_mins); //save token & expiration time to localstorage with https://github.com/pamelafox/lscache
+                        // localStorage.setItem(tokenKey, decodeURIComponent(access_token[1])); // alternatively simply use localStorage if the token doesn't expire
+                    } else {
+                        alert("Returned state doesn't match. Possible CSRF attack.");
+                        lscache.remove('state');
+                        return;
+                    }
                 }
             }
             /// Check whether login or logout button should be displayed
@@ -46,6 +54,7 @@
 
         function login() {
             lscache.remove('token');
+            lscache.set('state', state); // save state
             // localStorage.removeItem(tokenKey);
             window.location.assign(oauth_url);
         }
